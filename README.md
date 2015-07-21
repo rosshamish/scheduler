@@ -7,6 +7,7 @@ Feature roadmap:
 - [x] represent Section as a concrete type (see rosshamish/classtime#103)
 - [x] represent Schedule as a concrete type
 - [ ] score schedules
+	- [x] with len(Sections)
 	- [ ] with rough ports of the Python scoring functions
 	- [ ] with scoring functions whose scores are bell-curved (ish)
 - [ ] conflict detection (see rosshamish/classtime#109)

@@ -12,6 +12,20 @@ type Schedule struct {
 	Sections []Section `json:"sections"`
 }
 
+type ScheduleCollection []Schedule
+
+func (schedules ScheduleCollection) Len() int {
+	return len(schedules)
+}
+
+func (schedules ScheduleCollection) Less(i, j int) bool {
+	return len(schedules[i].Sections) < len(schedules[j].Sections)
+}
+
+func (schedules ScheduleCollection) Swap(i, j int) {
+	schedules[i], schedules[j] = schedules[j], schedules[i]
+}
+
 type Section struct {
 	AsString          string   `json:"asString"`
 	Career            string   `json:"career"`
