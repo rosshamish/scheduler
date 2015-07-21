@@ -61,7 +61,7 @@ func (time AmPmTime) AsTimetableBlockNum() (blockNum int, err error) {
 
 	matches := re.FindStringSubmatch(string(time))
 	if matches == nil {
-		return -1, errors.New(fmt.Sprintf("Time \"%q\" does not match regex %q", time, amPmRegex))
+		return -1, errors.New(fmt.Sprintf("Time \"%q\" does not match regex %q", time, AmPmRegex))
 	}
 
 	hour, _ := strconv.Atoi(matches[1])
