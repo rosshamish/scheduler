@@ -10,14 +10,25 @@ Feature roadmap:
 	- [x] with len(Sections)
 	- [ ] with rough ports of the Python scoring functions
 	- [ ] with scoring functions whose scores are bell-curved (ish)
-- [ ] conflict detection (see rosshamish/classtime#109)
+- [ ] get section data from course ids
+	- [ ] directly from psql
+	- [ ] from temporary classtime api endpoint, /api/vx/sections
+	- [ ] ?
+- [ ] more progressive conflict detection (see rosshamish/classtime#109)
+	- [ ] is this pair of sections a known conflict? -conflict
+	- [ ] are these sections on different days? -noconflict
+	- [ ] do their times overlap? -conflict
+- [ ] conflict data collection
+	- [ ] known conflicting section pairs per course pair 
+		-  "do these courses fit pretty well together? Or will this schedule be a lost cause with this pair?"
+		- **this could lead to course suggestions based on what you've already got in your schedule**
+	- [ ] return schedules with 1 or 2 conflicts but are great schedules
 - [ ] caching
-	- [ ] of conflicts
-	- [ ] of requests
+	- [ ] of known conflicting section pairs
+	- [ ] of schedule requests
 	- [ ] persistent across instances & restarts
 - [ ] electives
 - [ ] "more like this" condensing
-- [ ] conflict "error reporting" (see rosshamish/classtime#109)
 - [ ] expose as an API with same interface as classtime/api/vN/generate-schedules
 - [ ] redirect classtime/api/vN+1/generate-schedules requests to this API
 

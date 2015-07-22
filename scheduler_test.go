@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"encoding/json"
+	"log"
 	"regexp"
 	"testing"
 )
@@ -62,5 +63,21 @@ func TestJSONMarshalling(t *testing.T) {
 		if had != got {
 			t.Errorf("had: \n%q\ngot: \n%q", had, got)
 		}
+	}
+}
+
+func BenchmarkGenerate(b *testing.B) {
+	for i, testCase := range testCases {
+		log.Printf("Test case #%d", i)
+		schedReq := new(ScheduleRequest)
+
+		json.Unmarshal([]byte(testCase), schedReq)
+		log.Printf("Schedule request: %+v", *schedReq)
+		schedules := Generate(*schedReq)
+		log.Printf("Generated %d schedules", len(schedules))
+		if len(schedules) > 0 {
+			log.Printf("First schedule: \n%q", schedules[0])
+		}
+		log.Printf("------------")
 	}
 }
