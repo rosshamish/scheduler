@@ -30,7 +30,7 @@ type Preferences struct {
 }
 
 func Generate(req ScheduleRequest) []Schedule {
-	MAX_SIMULTANEOUS_CANDIDATES := 300
+	MAX_SIMULTANEOUS_CANDIDATES := 10
 
 	components := [][]Section{}
 	for _, course := range req.Courses {
@@ -49,27 +49,30 @@ func Generate(req ScheduleRequest) []Schedule {
 
 	candidates := []Schedule{}
 	candidates = append(candidates, Schedule{})
-	empties := 0
 	for i, component := range components {
 		// each component is a list of sections
 		sections := component
 
-		// TODO fix existence of empty components
 		prevLen := len(candidates)
-		if len(component) == 0 {
-			empties = empties + 1
-			continue
-		}
-		log.Printf("...Scheduling %v (%d/%d)", sections[0], i+1, len(components)-empties)
+		log.Printf("...Adding %v, finding schedules (%d/%d)", sections[0], i+1, len(components))
+
 		choices := "choices"
 		if len(sections) == 1 {
 			choices = "choice"
 		}
 		log.Printf("...%d section %v", len(sections), choices)
+
 		candidates = addComponent(candidates, sections, i)
-		log.Printf("...Done. %d candidates (%+d)\n", len(candidates), len(candidates)-prevLen)
-		if len(candidates) > 200 {
-			log.Printf("...Trimming. %d candidates (%+d)\n", MAX_SIMULTANEOUS_CANDIDATES, -1*(len(candidates)-MAX_SIMULTANEOUS_CANDIDATES))
+
+		possibilities := prevLen * len(sections)
+		var pct float64 = 0
+		if possibilities != 0 {
+			pct = float64(len(candidates)) / float64(possibilities) * 100.0
+		}
+		log.Printf("...Found %d from %d possibilities (%2.0f%%)\n", len(candidates), possibilities, pct)
+
+		if len(candidates) > MAX_SIMULTANEOUS_CANDIDATES {
+			log.Printf("...Keeping %d, killing worst %d\n", MAX_SIMULTANEOUS_CANDIDATES, len(candidates)-MAX_SIMULTANEOUS_CANDIDATES)
 			candidates = candidates[:MAX_SIMULTANEOUS_CANDIDATES]
 		}
 		log.Printf("\n")
@@ -79,7 +82,6 @@ func Generate(req ScheduleRequest) []Schedule {
 }
 
 func addComponent(candidates []Schedule, sections []Section, pace int) []Schedule {
-	log.Printf("...Finding candidates")
 	workReport := ""
 
 	newCandidates := []Schedule{}
@@ -88,17 +90,23 @@ func addComponent(candidates []Schedule, sections []Section, pace int) []Schedul
 			continue
 		}
 		for _, s := range sections {
+			conflict := false
 			for _, sCandidate := range candidate.Sections {
 				if s.Conflicts(sCandidate) {
-					workReport = workReport + "x"
-					continue
+					conflict = true
+					break
 				}
 			}
-			candidate = candidate.addSection(s)
-			newCandidates = append(newCandidates, candidate)
+			if conflict {
+				workReport = workReport + "x"
+				continue
+			}
+
 			workReport = workReport + "O"
+			newCandidates = append(newCandidates, candidate.addSection(s))
 		}
 	}
+	log.Printf("new candidates %d", len(newCandidates))
 
 	if len(workReport) > 60 {
 		workReport = workReport[:60] + " (truncated)"
@@ -112,7 +120,7 @@ type ByCount [][]Section
 
 func (a ByCount) Len() int           { return len(a) }
 func (a ByCount) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByCount) Less(i, j int) bool { return len(a[i]) < len(a[i]) }
+func (a ByCount) Less(i, j int) bool { return len(a[i]) < len(a[j]) }
 
 var componentTypes = [...]string{"LEC", "LAB", "SEM", "LBL"}
 

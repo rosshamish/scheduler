@@ -10,16 +10,17 @@ Feature roadmap:
 	- [x] with len(Sections)
 	- [ ] with rough ports of the Python scoring functions
 	- [ ] with scoring functions whose scores are bell-curved (ish)
-- [ ] get section data from course ids
-	- [ ] directly from psql
+- [x] get section data from course ids
+	- [x] directly from psql
 	- [ ] from temporary classtime api endpoint, /api/vx/sections
 	- [ ] ?
+- [x] conflict detection
 - [ ] more progressive conflict detection (see rosshamish/classtime#109)
 	- [ ] is this pair of sections a known conflict? -conflict
 	- [ ] are these sections on different days? -noconflict
 	- [ ] do their times overlap? -conflict
 - [ ] conflict data collection
-	- [ ] known conflicting section pairs per course pair 
+	- [ ] known conflicting section pairs per course pair
 		-  "do these courses fit pretty well together? Or will this schedule be a lost cause with this pair?"
 		- **this could lead to course suggestions based on what you've already got in your schedule**
 	- [ ] return schedules with 1 or 2 conflicts but are great schedules
@@ -36,7 +37,7 @@ Benchmark roadmap:
 
 > comparing against ~30s for sequentially running all cases at [TestAPI.test_generate_schedules](https://github.com/rosshamish/classtime/blob/8236e91f001f4a5ba76bf1935055415784f2abfd/tests/classtime/test_api.py#L107)
 
-- [ ] running properly with bare minimum
+- [x] running properly with bare minimum
 - [ ] running properly with busy-times
 - [ ] ~running properly with electives too~ it's broken in classtime right now anyway
 - [ ] 90s
