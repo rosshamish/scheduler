@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"regexp"
 	"strconv"
@@ -10,6 +11,18 @@ import (
 type Schedule struct {
 	Sections  []Section `json:"sections"`
 	Conflicts []Conflict
+}
+
+func (sch Schedule) String() string {
+	repr := "["
+	for i, section := range sch.Sections {
+		if i > 0 {
+			repr += ", "
+		}
+		repr += fmt.Sprintf("%v", section)
+	}
+	repr += "]"
+	return repr
 }
 
 func (sch Schedule) addSection(sec Section) Schedule {
@@ -56,6 +69,10 @@ type Section struct {
 	TimetableRange    TimetableRange `json:"-"`
 }
 
+func (s Section) String() string {
+	return "<" + s.AsString.String + ">"
+}
+
 func (s Section) Conflicts(o Section) bool {
 	if s.TimetableRange == nil {
 		s.TimetableRange = TimetableRangeFrom(s)
@@ -85,7 +102,7 @@ func (tr TimetableRange) overlaps(otr TimetableRange) bool {
 func TimetableRangeFrom(s Section) TimetableRange {
 	startBlock := AmPmTime(s.StartTime.String).AsTimetableBlockNum()
 	endBlock := AmPmTime(s.EndTime.String).AsTimetableBlockNum()
-	var tr TimetableRange
+	tr := make(TimetableRange)
 
 	for _, day := range s.Day.String {
 		for i := startBlock; i <= endBlock; i++ {

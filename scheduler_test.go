@@ -67,6 +67,24 @@ func TestJSONMarshalling(t *testing.T) {
 }
 
 func BenchmarkGenerate(b *testing.B) {
+	log.Printf("--")
+	for i, testCase := range testCases {
+		log.Printf("Test case #%d", i)
+		schedReq := new(ScheduleRequest)
+
+		json.Unmarshal([]byte(testCase), schedReq)
+		log.Printf("Schedule request: %+v", *schedReq)
+		schedules := Generate(*schedReq)
+		log.Printf("Generated %d schedules", len(schedules))
+		if len(schedules) > 0 {
+			log.Printf("First schedule: \n%q", schedules[0])
+		}
+		log.Printf("------------")
+	}
+}
+
+func TestGenerate(t *testing.T) {
+	log.Printf("------------")
 	for i, testCase := range testCases {
 		log.Printf("Test case #%d", i)
 		schedReq := new(ScheduleRequest)
