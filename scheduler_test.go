@@ -8,14 +8,6 @@ import (
 )
 
 var testCases = [...]string{
-	// {  # Fall 2015 ECE 304
-	// -- has 3 components and has a dependency
-	// github.com/rosshamish/classtime/issues/98
-	`{
-		"institution": "ualberta",
-		"term": "1530",
-		"courses": ["105005"]
-	}`,
 	// 1st year engineering Fall Term 2014
 	`{
 		"institution": "ualberta",
@@ -42,6 +34,14 @@ var testCases = [...]string{
 		    "current-status": true,
 		    "obey-status": true
 		}
+	}`,
+	// {  # Fall 2015 ECE 304
+	// -- has 3 components and has a dependency
+	// github.com/rosshamish/classtime/issues/98
+	`{
+		"institution": "ualberta",
+		"term": "1530",
+		"courses": ["105005"]
 	}`,
 }
 

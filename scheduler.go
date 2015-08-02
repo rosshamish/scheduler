@@ -4,7 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"log"
-	"sort"
+
+	"github.com/wkschwartz/pigosat"
 
 	"github.com/kisielk/sqlstruct"
 	_ "github.com/lib/pq"
@@ -30,7 +31,7 @@ type Preferences struct {
 }
 
 func Generate(req ScheduleRequest) []Schedule {
-	MAX_SIMULTANEOUS_CANDIDATES := 10
+	// MAX_SIMULTANEOUS_CANDIDATES := 10
 
 	components := [][]Section{}
 	for _, course := range req.Courses {
@@ -44,83 +45,114 @@ func Generate(req ScheduleRequest) []Schedule {
 		components = append(components, courseComponents...)
 	}
 
-	// Components with fewer options should be scheduled first
-	sort.Sort(ByCount(components))
-
-	candidates := []Schedule{}
-	candidates = append(candidates, Schedule{})
-	for i, component := range components {
-		// each component is a list of sections
-		sections := component
-
-		prevLen := len(candidates)
-		log.Printf("...Adding %v, finding schedules (%d/%d)", sections[0], i+1, len(components))
-
-		choices := "choices"
-		if len(sections) == 1 {
-			choices = "choice"
-		}
-		log.Printf("...%d section %v", len(sections), choices)
-
-		candidates = addComponent(candidates, sections, i)
-
-		possibilities := prevLen * len(sections)
-		var pct float64 = 0
-		if possibilities != 0 {
-			pct = float64(len(candidates)) / float64(possibilities) * 100.0
-		}
-		log.Printf("...Found %d from %d possibilities (%2.0f%%)\n", len(candidates), possibilities, pct)
-
-		if len(candidates) > MAX_SIMULTANEOUS_CANDIDATES {
-			log.Printf("...Keeping %d, killing worst %d\n", MAX_SIMULTANEOUS_CANDIDATES, len(candidates)-MAX_SIMULTANEOUS_CANDIDATES)
-			candidates = candidates[:MAX_SIMULTANEOUS_CANDIDATES]
-		}
-		log.Printf("\n")
+	opts := new(pigosat.Options)
+	opts.PropagationLimit = 100
+	p, err := pigosat.New(opts)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	return candidates
-}
+	var clauses []pigosat.Clause
+	indexToSection, sectionToIndex, componentToIndex := buildSectionIndex(components)
 
-func addComponent(candidates []Schedule, sections []Section, pace int) []Schedule {
-	workReport := ""
+	// Constraint: MUST schedule one of each component
+	clauses = make([]pigosat.Clause, 0)
+	clause := make([]pigosat.Literal, len(components))
+	for i, component := range components {
+		log.Printf("component %s", component[0].Course.String+component[0].Component.String)
+		clause[i] = pigosat.Literal(componentToIndex[component[0].Course.String+component[0].Component.String])
+	}
+	clauses = append(clauses, pigosat.Clause(clause))
+	p.AddClauses(pigosat.Formula(clauses))
+	log.Printf("Clauses: %v\n", clauses)
 
-	newCandidates := []Schedule{}
-	for _, candidate := range candidates {
-		if len(candidate.Sections) < pace {
-			continue
+	// Constraint: MUST NOT schedule conflicting sections together.
+	//   Note: sections in the same component conflict.
+	//   Note: recall (A' + B') == (AB)'
+	conflicts := getConflicts(components)
+	clauses = make([]pigosat.Clause, 0)
+	for _, conflict := range conflicts {
+		clause := []pigosat.Literal{
+			pigosat.Literal(-1 * sectionToIndex[conflict.a.String()]),
+			pigosat.Literal(-1 * sectionToIndex[conflict.b.String()]),
 		}
-		for _, s := range sections {
-			conflict := false
-			for _, sCandidate := range candidate.Sections {
-				if s.Conflicts(sCandidate) {
-					conflict = true
-					break
-				}
-			}
-			if conflict {
-				workReport = workReport + "x"
+		clauses = append(clauses, pigosat.Clause(clause))
+	}
+	p.AddClauses(pigosat.Formula(clauses))
+	log.Printf("Clauses: %v\n", clauses)
+
+	for status, solution := p.Solve(); status == pigosat.Satisfiable; status, solution = p.Solve() {
+		log.Printf("Solution: %v\n", solution)
+		solnSections := make([]Section, 0)
+		for i, val := range solution {
+			if val == false {
 				continue
 			}
-
-			workReport = workReport + "O"
-			newCandidates = append(newCandidates, candidate.addSection(s))
+			if section, ok := indexToSection[int32(i)]; ok {
+				solnSections = append(solnSections, section)
+			}
 		}
+		log.Printf("Translated: %v\n", solnSections)
 	}
-	log.Printf("new candidates %d", len(newCandidates))
 
-	if len(workReport) > 60 {
-		workReport = workReport[:60] + " (truncated)"
-	}
-	log.Printf("...%s", workReport)
-
-	return newCandidates
+	return []Schedule{}
 }
 
-type ByCount [][]Section
+type Conflict struct {
+	a, b Section
+}
 
-func (a ByCount) Len() int           { return len(a) }
-func (a ByCount) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByCount) Less(i, j int) bool { return len(a[i]) < len(a[j]) }
+func (c Conflict) String() string {
+	return c.a.String() + "x" + c.b.String()
+}
+
+func getConflicts(components [][]Section) []Conflict {
+	conflicts := make([]Conflict, 0)
+	for i, ac := range components {
+		for j, bc := range components {
+			// Consider conflicts from a->b direction only
+			if j < i {
+				continue
+			}
+			// A component is a list of sections
+			aSections, bSections := ac, bc
+			// Conflict if:
+			//   - time conflict
+			//   - same component (i == j, here)
+			//   - TODO dependency not satisfied ie LEC A1->LAB A2,A3
+			for ii, a := range aSections {
+				for jj, b := range bSections {
+					if ii <= jj {
+						continue
+					}
+					if a.Conflicts(b) || i == j {
+						conflicts = append(conflicts, Conflict{a, b}, Conflict{b, a})
+					}
+				}
+			}
+		}
+	}
+	return conflicts
+}
+
+func buildSectionIndex(components [][]Section) (map[int32]Section, map[string]int32, map[string]int32) {
+	indexToSection := make(map[int32]Section)
+	sectionToIndex := make(map[string]int32)
+	componentToIndex := make(map[string]int32)
+	var idx int32 = 1
+	for _, sections := range components {
+		for i, section := range sections {
+			if i == 0 {
+				componentToIndex[section.Course.String+section.Component.String] = idx
+				idx = idx + 1
+			}
+			indexToSection[idx] = section
+			sectionToIndex[section.String()] = idx
+			idx = idx + 1
+		}
+	}
+	return indexToSection, sectionToIndex, componentToIndex
+}
 
 var componentTypes = [...]string{"LEC", "LAB", "SEM", "LBL"}
 

@@ -36,11 +36,6 @@ func (a ByNumConflicts) Len() int           { return len(a) }
 func (a ByNumConflicts) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByNumConflicts) Less(i, j int) bool { return len(a[i].Conflicts) < len(a[i].Conflicts) }
 
-type Conflict struct {
-	a Section
-	b Section
-}
-
 type Section struct {
 	AsString          sql.NullString `json:"asString"`
 	Career            sql.NullString `json:"career"`
