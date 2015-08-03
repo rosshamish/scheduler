@@ -179,7 +179,9 @@ func getComponents(course, term, institution string) ([][]Section, error) {
 			WHERE component=$1
 				AND course=$2
 				AND term=$3
-				AND institution=$4`
+				AND institution=$4
+			ORDER BY course, component`
+	courseAndSectionIdToSection := make(map[string]Section)
 	for _, c := range componentTypes {
 		rows, err := db.Query(query, c, course, term, institution)
 		if err != nil {
@@ -194,12 +196,24 @@ func getComponents(course, term, institution string) ([][]Section, error) {
 				log.Fatal(err)
 				continue
 			}
+			courseAndSectionIdToSection[section.Course.String+section.Section.String] = section
 			sections = append(sections, section)
 		}
 		if len(sections) == 0 {
 			continue
 		}
 		components = append(components, sections)
+	}
+
+	for _, sections := range components {
+		for _, section := range sections {
+			if section.AutoEnroll.String != "" {
+				autoEnrollComponent, ok := courseAndSectionIdToSection[section.Course.String+section.AutoEnroll.String]
+				if ok {
+					section.AutoEnrollComponent.Scan(autoEnrollComponent.Component.String)
+				}
+			}
+		}
 	}
 
 	return components, nil

@@ -37,32 +37,33 @@ func (a ByNumConflicts) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByNumConflicts) Less(i, j int) bool { return len(a[i].Conflicts) < len(a[i].Conflicts) }
 
 type Section struct {
-	AsString          sql.NullString `json:"asString"`
-	AutoEnroll        sql.NullString `json:"autoEnroll"`
-	Career            sql.NullString `json:"career"`
-	Catalog           int            `json:"catalog"`
-	Course            sql.NullString `json:"course"`
-	CourseDescription sql.NullString `json:"courseDescription"`
-	CourseTitle       sql.NullString `json:"courseTitle"`
-	Department        sql.NullString `json:"department"`
-	DepartmentCode    sql.NullString `json:"departmentCode"`
-	Faculty           sql.NullString `json:"faculty"`
-	FacultyCode       sql.NullString `json:"facultyCode"`
-	Subject           sql.NullString `json:"subject"`
-	SubjectTitle      sql.NullString `json:"subjectTitle"`
-	Term              sql.NullString `json:"term"`
-	Units             int            `json:"units"`
-	Class             sql.NullString `json:"class_"`
-	Component         sql.NullString `json:"component"`
-	Day               sql.NullString `json:"day"`
-	StartTime         sql.NullString `json:"startTime"`
-	EndTime           sql.NullString `json:"endTime"`
-	Section           sql.NullString `json:"section"`
-	Campus            sql.NullString `json:"campus"`
-	Capacity          int            `json:"capacity"`
-	InstructorUid     sql.NullString `json:"instructorUid"`
-	Location          sql.NullString `json:"location"`
-	TimetableRange    TimetableRange `json:"-"`
+	AsString            sql.NullString `json:"asString"`
+	AutoEnroll          sql.NullString `json:"autoEnroll"`
+	AutoEnrollComponent sql.NullString `json:"autoEnrollComponent"`
+	Career              sql.NullString `json:"career"`
+	Catalog             int            `json:"catalog"`
+	Course              sql.NullString `json:"course"`
+	CourseDescription   sql.NullString `json:"courseDescription"`
+	CourseTitle         sql.NullString `json:"courseTitle"`
+	Department          sql.NullString `json:"department"`
+	DepartmentCode      sql.NullString `json:"departmentCode"`
+	Faculty             sql.NullString `json:"faculty"`
+	FacultyCode         sql.NullString `json:"facultyCode"`
+	Subject             sql.NullString `json:"subject"`
+	SubjectTitle        sql.NullString `json:"subjectTitle"`
+	Term                sql.NullString `json:"term"`
+	Units               int            `json:"units"`
+	Class               sql.NullString `json:"class_"`
+	Component           sql.NullString `json:"component"`
+	Day                 sql.NullString `json:"day"`
+	StartTime           sql.NullString `json:"startTime"`
+	EndTime             sql.NullString `json:"endTime"`
+	Section             sql.NullString `json:"section"`
+	Campus              sql.NullString `json:"campus"`
+	Capacity            int            `json:"capacity"`
+	InstructorUid       sql.NullString `json:"instructorUid"`
+	Location            sql.NullString `json:"location"`
+	TimetableRange      TimetableRange `json:"-"`
 }
 
 func (s Section) String() string {
@@ -97,16 +98,33 @@ func (s Section) hasTimeConflict(o Section) bool {
 
 func (s Section) hasDependencyConflict(o Section) bool {
 	if s.Course.String != o.Course.String {
+		// They're not even the same course
 		return false
 	}
+
 	if s.AutoEnroll.String == "" && o.AutoEnroll.String == "" {
+		// Neither has a dependency
 		return false
 	}
 	if s.Section.String != o.AutoEnroll.String &&
 		s.AutoEnroll.String != o.Section.String {
+		// Neither course's dependency matches the other
 		return false
 	}
-	return true
+
+	// At this point, a dependency has been found
+	// BUT it might just be a coincidence, check that
+	// this is actually the component it's dependent on
+	// If neither of these cases are true, it's a false alarm.
+	if s.Section.String == o.AutoEnroll.String &&
+		s.Component.String == o.AutoEnrollComponent.String {
+		return true
+	} else if s.AutoEnroll.String == o.Section.String &&
+		s.AutoEnrollComponent.String == o.Component.String {
+		return true
+	}
+
+	return false
 }
 
 func (s Section) isSameCourseAndComponent(o Section) bool {
