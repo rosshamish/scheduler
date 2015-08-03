@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"math"
+	"time"
 
 	"github.com/wkschwartz/pigosat"
 
@@ -31,8 +33,7 @@ type Preferences struct {
 }
 
 func Generate(req ScheduleRequest) []Schedule {
-	// MAX_SIMULTANEOUS_CANDIDATES := 10
-
+	t := time.Now()
 	components := [][]Section{}
 	for _, course := range req.Courses {
 		courseComponents, err := getComponents(course, req.Term, req.Institution)
@@ -46,7 +47,7 @@ func Generate(req ScheduleRequest) []Schedule {
 	}
 
 	opts := new(pigosat.Options)
-	opts.PropagationLimit = 100
+	opts.PropagationLimit = uint64(math.Pow10(5))
 	p, err := pigosat.New(opts)
 	if err != nil {
 		log.Fatal(err)
@@ -57,19 +58,17 @@ func Generate(req ScheduleRequest) []Schedule {
 
 	// Constraint: MUST schedule one of each component
 	clauses = make([]pigosat.Clause, 0)
-	clause := make([]pigosat.Literal, 0)
-	componentName := ""
-	first := true
+	clauseByC := make(map[string][]pigosat.Literal)
 	for _, section := range indexToSection {
-		if section.Course.String+section.Component.String != componentName && !first {
-			clauses = append(clauses, pigosat.Clause(clause))
-			componentName = section.Course.String + section.Component.String
-		}
-		first = false
-		clause = append(clause, pigosat.Literal(sectionToIndex[section.String()]))
+		// log.Printf("[%d] %s", sectionToIndex[section.String()], section.String())
+		c := section.Course.String + section.Component.String
+		clauseByC[c] = append(clauseByC[c], pigosat.Literal(sectionToIndex[section.String()]))
+	}
+	for _, clause := range clauseByC {
+		clauses = append(clauses, pigosat.Clause(clause))
 	}
 	p.AddClauses(pigosat.Formula(clauses))
-	log.Printf("Clauses: %v\n", clauses)
+	// log.Printf("Clauses: %v\n", clauses)
 
 	// Constraint: MUST NOT schedule conflicting sections together.
 	//   Note: sections in the same component conflict.
@@ -84,21 +83,24 @@ func Generate(req ScheduleRequest) []Schedule {
 		clauses = append(clauses, pigosat.Clause(clause))
 	}
 	p.AddClauses(pigosat.Formula(clauses))
-	log.Printf("Clauses: %v\n", clauses)
+	// log.Printf("Clauses: %v\n", clauses)
 
-	for status, solution := p.Solve(); status == pigosat.Satisfiable; status, solution = p.Solve() {
-		log.Printf("Solution: %v\n", solution)
-		solnSections := make([]Section, 0)
-		for i, val := range solution {
-			if val == false {
-				continue
-			}
-			if section, ok := indexToSection[int32(i)]; ok {
-				solnSections = append(solnSections, section)
-			}
-		}
-		log.Printf("Translated: %v\n", solnSections)
+	count := 0
+	for status, _ := p.Solve(); status == pigosat.Satisfiable; status, _ = p.Solve() {
+		// solnSections := make([]Section, 0)
+		// for i, val := range solution {
+		// 	if val == false {
+		// 		continue
+		// 	}
+		// 	if section, ok := indexToSection[int32(i)]; ok {
+		// 		solnSections = append(solnSections, section)
+		// 	}
+		// }
+		// log.Printf("Solution: %v\n", solnSections)
+		count = count + 1
 	}
+	msDelta := float64(time.Now().Nanosecond()-t.Nanosecond()) * math.Pow(10, -6)
+	log.Printf("Found %d schedules in %.2fms\n", count, msDelta)
 
 	return []Schedule{}
 }
