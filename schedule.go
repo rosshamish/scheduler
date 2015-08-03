@@ -38,6 +38,7 @@ func (a ByNumConflicts) Less(i, j int) bool { return len(a[i].Conflicts) < len(a
 
 type Section struct {
 	AsString          sql.NullString `json:"asString"`
+	AutoEnroll        sql.NullString `json:"autoEnroll"`
 	Career            sql.NullString `json:"career"`
 	Catalog           int            `json:"catalog"`
 	Course            sql.NullString `json:"course"`
@@ -69,6 +70,22 @@ func (s Section) String() string {
 }
 
 func (s Section) Conflicts(o Section) bool {
+	if s.isSameCourseAndComponent(o) {
+		return true
+	}
+
+	if s.hasTimeConflict(o) {
+		return true
+	}
+
+	if s.hasDependencyConflict(o) {
+		return true
+	}
+
+	return false
+}
+
+func (s Section) hasTimeConflict(o Section) bool {
 	if s.TimetableRange == nil {
 		s.TimetableRange = TimetableRangeFrom(s)
 	}
@@ -76,6 +93,29 @@ func (s Section) Conflicts(o Section) bool {
 		o.TimetableRange = TimetableRangeFrom(o)
 	}
 	return s.TimetableRange.overlaps(o.TimetableRange)
+}
+
+func (s Section) hasDependencyConflict(o Section) bool {
+	if s.Course.String != o.Course.String {
+		return false
+	}
+	if s.AutoEnroll.String == "" && o.AutoEnroll.String == "" {
+		return false
+	}
+	if s.Section.String != o.AutoEnroll.String &&
+		s.AutoEnroll.String != o.Section.String {
+		return false
+	}
+	return true
+}
+
+func (s Section) isSameCourseAndComponent(o Section) bool {
+	if s.Course.String == o.Course.String {
+		if s.Component.String == o.Component.String {
+			return true
+		}
+	}
+	return false
 }
 
 // type TimetableRange maps a Day to an availability bitmap where
@@ -116,7 +156,7 @@ func (time AmPmTime) AsTimetableBlockNum() uint64 {
 
 	matches := re.FindStringSubmatch(string(time))
 	if matches == nil {
-		log.Fatal("Time \"%q\" does not match regex %q", time, AmPmRegex)
+		log.Fatalf("Time '%s' does not match regex '%s'", string(time), AmPmRegex)
 	}
 
 	hour, _ := strconv.ParseUint(matches[1], 10, 0)

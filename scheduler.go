@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log"
 	"math"
-	"time"
 
 	"github.com/wkschwartz/pigosat"
 
@@ -33,7 +32,6 @@ type Preferences struct {
 }
 
 func Generate(req ScheduleRequest) []Schedule {
-	t := time.Now()
 	components := [][]Section{}
 	for _, course := range req.Courses {
 		courseComponents, err := getComponents(course, req.Term, req.Institution)
@@ -56,7 +54,9 @@ func Generate(req ScheduleRequest) []Schedule {
 	var clauses []pigosat.Clause
 	indexToSection, sectionToIndex := buildSectionIndex(components)
 
-	// Constraint: MUST schedule one of each component
+	/*
+	 * Constraint: MUST schedule one of each component
+	 */
 	clauses = make([]pigosat.Clause, 0)
 	clauseByC := make(map[string][]pigosat.Literal)
 	for _, section := range indexToSection {
@@ -70,9 +70,11 @@ func Generate(req ScheduleRequest) []Schedule {
 	p.AddClauses(pigosat.Formula(clauses))
 	// log.Printf("Clauses: %v\n", clauses)
 
-	// Constraint: MUST NOT schedule conflicting sections together.
-	//   Note: sections in the same component conflict.
-	//   Note: recall (A' + B') == (AB)'
+	/*
+	 * Constraint: MUST NOT schedule conflicting sections together.
+	 *   Note: sections in the same component conflict.
+	 *   Note: recall (A' + B') == (AB)'
+	 */
 	conflicts := getConflicts(components)
 	clauses = make([]pigosat.Clause, 0)
 	for _, conflict := range conflicts {
@@ -86,23 +88,25 @@ func Generate(req ScheduleRequest) []Schedule {
 	// log.Printf("Clauses: %v\n", clauses)
 
 	count := 0
-	for status, _ := p.Solve(); status == pigosat.Satisfiable; status, _ = p.Solve() {
-		// solnSections := make([]Section, 0)
-		// for i, val := range solution {
-		// 	if val == false {
-		// 		continue
-		// 	}
-		// 	if section, ok := indexToSection[int32(i)]; ok {
-		// 		solnSections = append(solnSections, section)
-		// 	}
-		// }
-		// log.Printf("Solution: %v\n", solnSections)
+	schedules := make([]Schedule, 0)
+	for status, solution := p.Solve(); status == pigosat.Satisfiable; status, solution = p.Solve() {
+		solnSections := make([]Section, 0)
+		for i, val := range solution {
+			if val == false {
+				continue
+			}
+			if section, ok := indexToSection[int32(i)]; ok {
+				solnSections = append(solnSections, section)
+			}
+		}
+		if count < 200 {
+			schedules = append(schedules, Schedule{solnSections, []Conflict{}})
+		}
 		count = count + 1
 	}
-	msDelta := float64(time.Now().Nanosecond()-t.Nanosecond()) * math.Pow(10, -6)
-	log.Printf("Found %d schedules in %.2fms\n", count, msDelta)
+	log.Printf("Found %d schedules\n", count)
 
-	return []Schedule{}
+	return schedules
 }
 
 type Conflict struct {
@@ -117,7 +121,6 @@ func getConflicts(components [][]Section) []Conflict {
 	conflicts := make([]Conflict, 0)
 	for i, ac := range components {
 		for j, bc := range components {
-			// Consider conflicts from a->b direction only
 			if j < i {
 				continue
 			}
@@ -126,13 +129,13 @@ func getConflicts(components [][]Section) []Conflict {
 			// Conflict if:
 			//   - time conflict
 			//   - same component (i == j, here)
-			//   - TODO dependency not satisfied ie LEC A1->LAB A2,A3
+			//   - dependency not satisfied ie LEC A1->LAB A2,A3
 			for ii, a := range aSections {
 				for jj, b := range bSections {
 					if ii <= jj {
 						continue
 					}
-					if a.Conflicts(b) || i == j {
+					if a.Conflicts(b) || ii == jj {
 						conflicts = append(conflicts, Conflict{a, b}, Conflict{b, a})
 					}
 				}
