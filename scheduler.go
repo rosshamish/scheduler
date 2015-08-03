@@ -53,16 +53,21 @@ func Generate(req ScheduleRequest) []Schedule {
 	}
 
 	var clauses []pigosat.Clause
-	indexToSection, sectionToIndex, componentToIndex := buildSectionIndex(components)
+	indexToSection, sectionToIndex := buildSectionIndex(components)
 
 	// Constraint: MUST schedule one of each component
 	clauses = make([]pigosat.Clause, 0)
-	clause := make([]pigosat.Literal, len(components))
-	for i, component := range components {
-		log.Printf("component %s", component[0].Course.String+component[0].Component.String)
-		clause[i] = pigosat.Literal(componentToIndex[component[0].Course.String+component[0].Component.String])
+	clause := make([]pigosat.Literal, 0)
+	componentName := ""
+	first := true
+	for _, section := range indexToSection {
+		if section.Course.String+section.Component.String != componentName && !first {
+			clauses = append(clauses, pigosat.Clause(clause))
+			componentName = section.Course.String + section.Component.String
+		}
+		first = false
+		clause = append(clause, pigosat.Literal(sectionToIndex[section.String()]))
 	}
-	clauses = append(clauses, pigosat.Clause(clause))
 	p.AddClauses(pigosat.Formula(clauses))
 	log.Printf("Clauses: %v\n", clauses)
 
@@ -135,23 +140,18 @@ func getConflicts(components [][]Section) []Conflict {
 	return conflicts
 }
 
-func buildSectionIndex(components [][]Section) (map[int32]Section, map[string]int32, map[string]int32) {
+func buildSectionIndex(components [][]Section) (map[int32]Section, map[string]int32) {
 	indexToSection := make(map[int32]Section)
 	sectionToIndex := make(map[string]int32)
-	componentToIndex := make(map[string]int32)
 	var idx int32 = 1
 	for _, sections := range components {
-		for i, section := range sections {
-			if i == 0 {
-				componentToIndex[section.Course.String+section.Component.String] = idx
-				idx = idx + 1
-			}
+		for _, section := range sections {
 			indexToSection[idx] = section
 			sectionToIndex[section.String()] = idx
 			idx = idx + 1
 		}
 	}
-	return indexToSection, sectionToIndex, componentToIndex
+	return indexToSection, sectionToIndex
 }
 
 var componentTypes = [...]string{"LEC", "LAB", "SEM", "LBL"}
