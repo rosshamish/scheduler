@@ -86,6 +86,15 @@ func (s Section) Conflicts(o Section) bool {
 	return false
 }
 
+func (s Section) isSameCourseAndComponent(o Section) bool {
+	if s.Course.String == o.Course.String {
+		if s.Component.String == o.Component.String {
+			return true
+		}
+	}
+	return false
+}
+
 func (s Section) hasTimeConflict(o Section) bool {
 	if s.TimetableRange == nil {
 		s.TimetableRange = TimetableRangeFrom(s)
@@ -98,42 +107,30 @@ func (s Section) hasTimeConflict(o Section) bool {
 
 func (s Section) hasDependencyConflict(o Section) bool {
 	if s.Course.String != o.Course.String {
-		// They're not even the same course
+		// They're not even the same course. No conflict
 		return false
 	}
-
 	if s.AutoEnroll.String == "" && o.AutoEnroll.String == "" {
-		// Neither has a dependency
+		// Neither section has a dependency! No conflict
 		return false
 	}
 	if s.Section.String != o.AutoEnroll.String &&
 		s.AutoEnroll.String != o.Section.String {
-		// Neither course's dependency matches the other
+		// Neither section depends on the other section's identifier. No conflict.
+		return false
+	}
+	if s.Section.String == o.AutoEnroll.String &&
+		s.Component.String == o.AutoEnrollComponent.String {
+		// Dependency exists, and is satisfied, from o->s. No conflict
+		return false
+	} else if s.AutoEnroll.String == o.Section.String &&
+		s.AutoEnrollComponent.String == o.Component.String {
+		// Dependency exists, and is satisfied, from s->o. No conflict
 		return false
 	}
 
-	// At this point, a dependency has been found
-	// BUT it might just be a coincidence, check that
-	// this is actually the component it's dependent on
-	// If neither of these cases are true, it's a false alarm.
-	if s.Section.String == o.AutoEnroll.String &&
-		s.Component.String == o.AutoEnrollComponent.String {
-		return true
-	} else if s.AutoEnroll.String == o.Section.String &&
-		s.AutoEnrollComponent.String == o.Component.String {
-		return true
-	}
-
-	return false
-}
-
-func (s Section) isSameCourseAndComponent(o Section) bool {
-	if s.Course.String == o.Course.String {
-		if s.Component.String == o.Component.String {
-			return true
-		}
-	}
-	return false
+	// There exists a dependency between s-o, and it is not satisfied. Conflict.
+	return true
 }
 
 // type TimetableRange maps a Day to an availability bitmap where

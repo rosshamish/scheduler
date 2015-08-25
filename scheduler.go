@@ -208,9 +208,9 @@ func getComponents(course, term, institution string) ([][]Section, error) {
 	for _, sections := range components {
 		for _, section := range sections {
 			if section.AutoEnroll.String != "" {
-				autoEnrollComponent, ok := courseAndSectionIdToSection[section.Course.String+section.AutoEnroll.String]
+				autoEnrollSection, ok := courseAndSectionIdToSection[section.Course.String+section.AutoEnroll.String]
 				if ok {
-					section.AutoEnrollComponent.Scan(autoEnrollComponent.Component.String)
+					section.AutoEnrollComponent.Scan(autoEnrollSection.Component.String)
 				}
 			}
 		}

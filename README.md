@@ -17,7 +17,7 @@ Feature roadmap:
 - [x] conflict detection
 	- [x] same course, same component
 	- [x] same time
-	- [ ] course dependency not satisfied (ie LECA1->LABA2,3,4)
+	- [x] course dependency not satisfied (ie LECA1->LABA2,3,4)
 		- this is half-implemented, need to check the AutoEnroll component type, see the Python impl
 - [x] gen with constraint solver (SAT solver)
 - [ ] busy-times
