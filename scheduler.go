@@ -17,7 +17,22 @@ type ScheduleRequest struct {
 	Term            string           `json:"term"`
 	Courses         []string         `json:"courses"`
 	ElectivesGroups []ElectivesGroup `json:"electives,omitempty"`
+	BusyTimes       []BusyTime       `json:"busy-times,omitempty"`
 	Preferences     *Preferences     `json:"preferences,omitempty"`
+}
+
+type BusyTime struct {
+	Days      Days     `json:"day"`
+	StartTime AmPmTime `json:"startTime"`
+	EndTime   AmPmTime `json:"endTime"`
+}
+
+func (s ScheduleRequest) GetBusyTimetableRanges() []TimetableRange {
+	ttRanges := make([]TimetableRange, 0)
+	for _, b := range s.BusyTimes {
+		ttRanges = append(ttRanges, TimetableRangeFromTimes(b.Days, b.StartTime, b.EndTime))
+	}
+	return ttRanges
 }
 
 type ElectivesGroup struct {
@@ -71,16 +86,25 @@ func Generate(req ScheduleRequest) []Schedule {
 	// log.Printf("Clauses: %v\n", clauses)
 
 	/*
-	 * Constraint: MUST NOT schedule conflicting sections together.
+	 * Constraint: MUST NOT schedule conflicting sections together
+	 *         AND MUST NOT schedule sections during any busy time
 	 *   Note: sections in the same component conflict.
 	 *   Note: recall (A' + B') == (AB)'
 	 */
-	conflicts := getConflicts(components)
+	busyTimes := req.GetBusyTimetableRanges()
+	log.Printf("%v\n", busyTimes)
+	conflicts := getConflictsExt(components, busyTimes)
 	clauses = make([]pigosat.Clause, 0)
 	for _, conflict := range conflicts {
-		clause := []pigosat.Literal{
-			pigosat.Literal(-1 * sectionToIndex[conflict.a.String()]),
-			pigosat.Literal(-1 * sectionToIndex[conflict.b.String()]),
+		var clause []pigosat.Literal
+		if conflict.a.String() != conflict.b.String() {
+			clause = []pigosat.Literal{
+				pigosat.Literal(-1 * sectionToIndex[conflict.a.String()]),
+				pigosat.Literal(-1 * sectionToIndex[conflict.b.String()]),
+			}
+		} else {
+			clause = []pigosat.Literal{
+				pigosat.Literal(-1 * sectionToIndex[conflict.a.String()])}
 		}
 		clauses = append(clauses, pigosat.Clause(clause))
 	}
@@ -136,8 +160,25 @@ func getConflicts(components [][]Section) []Conflict {
 						continue
 					}
 					if a.Conflicts(b) || ii == jj {
-						conflicts = append(conflicts, Conflict{a, b}, Conflict{b, a})
+						conflicts = append(conflicts, Conflict{a, b})
 					}
+				}
+			}
+		}
+	}
+	return conflicts
+}
+
+func getConflictsExt(components [][]Section, busyTimes []TimetableRange) []Conflict {
+	conflicts := getConflicts(components)
+	for _, sections := range components {
+		for _, section := range sections {
+			if section.TimetableRange == nil {
+				section.TimetableRange = TimetableRangeFrom(section)
+			}
+			for _, busyTime := range busyTimes {
+				if section.TimetableRange.Overlaps(busyTime) {
+					conflicts = append(conflicts, Conflict{section, section})
 				}
 			}
 		}

@@ -20,7 +20,7 @@ Feature roadmap:
 	- [x] course dependency not satisfied (ie LECA1->LABA2,3,4)
 		- this is half-implemented, need to check the AutoEnroll component type, see the Python impl
 - [x] gen with constraint solver (SAT solver)
-- [ ] busy-times
+- [x] busy-times
 - [ ] ~~more progressive conflict detection (see rosshamish/classtime#109)~~ SAT solver makes these unnecessary
 	- [ ] ~~is this pair of sections a known conflict? -conflict~~
 	- [ ] ~~are these sections on different days? -noconflict~~

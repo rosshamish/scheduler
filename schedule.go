@@ -102,7 +102,7 @@ func (s Section) hasTimeConflict(o Section) bool {
 	if o.TimetableRange == nil {
 		o.TimetableRange = TimetableRangeFrom(o)
 	}
-	return s.TimetableRange.overlaps(o.TimetableRange)
+	return s.TimetableRange.Overlaps(o.TimetableRange)
 }
 
 func (s Section) hasDependencyConflict(o Section) bool {
@@ -140,7 +140,7 @@ type TimetableRange map[Day]uint64
 type Day string
 type Days string
 
-func (tr TimetableRange) overlaps(otr TimetableRange) bool {
+func (tr TimetableRange) Overlaps(otr TimetableRange) bool {
 	for day, blocks := range tr {
 		if blocks&otr[day] != 0 {
 			return true
@@ -149,17 +149,21 @@ func (tr TimetableRange) overlaps(otr TimetableRange) bool {
 	return false
 }
 
-func TimetableRangeFrom(s Section) TimetableRange {
-	startBlock := AmPmTime(s.StartTime.String).AsTimetableBlockNum()
-	endBlock := AmPmTime(s.EndTime.String).AsTimetableBlockNum()
+func TimetableRangeFromTimes(days Days, a AmPmTime, b AmPmTime) TimetableRange {
+	startBlock := a.AsTimetableBlockNum()
+	endBlock := b.AsTimetableBlockNum()
 	tr := make(TimetableRange)
 
-	for _, day := range s.Day.String {
+	for _, day := range days {
 		for i := startBlock; i <= endBlock; i++ {
 			tr[Day(day)] |= 1 << i
 		}
 	}
 	return tr
+}
+
+func TimetableRangeFrom(s Section) TimetableRange {
+	return TimetableRangeFromTimes(Days(s.Day.String), AmPmTime(s.StartTime.String), AmPmTime(s.EndTime.String))
 }
 
 type AmPmTime string

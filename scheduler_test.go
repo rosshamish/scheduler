@@ -30,18 +30,18 @@ var testCases = [...]string{
 	//     "term": "1530",
 	//     "courses": ["004051"]
 	// }`,
-	// // Random courses
-	// `{
-	//     "institution": "ualberta",
-	//     "term": "1490",
-	//     "courses": ["001343",
-	//                 "009019"],
-	//     "busy-times": [{
-	// 	        "day": "MWF",
-	// 	        "startTime": "04:00 PM",
-	// 	        "endTime": "06:00 PM"
-	// 	  }]
-	// }`,
+	// Random courses
+	`{
+		"institution": "ualberta",
+		"term": "1490",
+		"courses": ["001343",
+								"009019"],
+		"busy-times": [{
+					"day": "MWF",
+					"startTime": "04:00 PM",
+					"endTime": "06:00 PM"
+		}]
+	}`,
 	// // 1st year engineering 2014 Fall Term
 	// `{
 	//  "institution": "ualberta",
